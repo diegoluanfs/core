@@ -1,0 +1,62 @@
+# Logs
+logs/
+*.log
+*.tlog
+
+# Diretórios de Build
+bin/
+obj/
+
+# Configurações do Visual Studio
+.vs/
+*.user
+*.suo
+
+# Arquivos gerados pelo Visual Studio Code
+.vscode/
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos do Rider/JetBrains
+.idea/
+*.iml
+
+# Arquivos temporários e de cache
+*.pid
+*.swp
+*.tmp
+*.temp
+
+# Dependências do npm (se houver front-end integrado)
+node_modules/
+
+# Configurações do projeto
+appsettings.*.json
+appsettings.Development.json
+
+# Outros arquivos de backup e de estado
+*.bak
+*.old
+*.orig
+
+# Arquivos de cobertura de código
+coverage/
+
+# Arquivos específicos do MongoDB
+*.lock
+mongodump/
+mongorestore/
+
+# Arquivos gerados pelo Docker (se usado)
+.dockerignore
+Dockerfile
+docker-compose.*
+
+# Configurações locais e específicas do ambiente
+.env
+.env.local
+
+# Arquivos de publicação
+publish/
