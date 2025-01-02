@@ -1,120 +1,167 @@
-### CoreAPI README.md
+### Atualização do README.md
+
+Aqui está um README atualizado para sua aplicação core, considerando o uso de MongoDB e outras configurações que discutimos:
+
+---
 
 ```markdown
 # CoreAPI - Backend Centralizado para Aplicações
 
 ## Descrição
 
-**CoreAPI** é o backend centralizado que servirá como núcleo para todas as aplicações desenvolvidas. O objetivo desta aplicação é fornecer uma base robusta, escalável e reutilizável para atender às necessidades de backend de diversos projetos, garantindo consistência, segurança e performance.
+**CoreAPI** é o backend centralizado que servirá como núcleo para todas as aplicações desenvolvidas. O objetivo é fornecer uma base robusta, escalável e reutilizável, que gerencie autenticação, dados e serviços de forma eficiente. A aplicação utiliza MongoDB como banco de dados e é construída com .NET 8.0.
 
 ## Principais Funcionalidades
 
-- **Gerenciamento de Usuários**: Autenticação e autorização com suporte a OAuth2 e JWT.
-- **Configurações Centralizadas**: Permite a configuração de parâmetros globais para diferentes aplicações.
-- **Integração com Banco de Dados**: Suporte a múltiplos bancos de dados, como SQL Server e PostgreSQL.
-- **APIs Reutilizáveis**: Endpoints padronizados para operações comuns.
-- **Controle de Logs**: Monitoramento centralizado de atividades e erros.
-- **Gestão de Permissões**: Controle detalhado de acessos por aplicação e usuário.
-- **Notificações**: Envio de notificações por email ou outros canais integrados.
-- **Suporte a Microserviços**: Estrutura para integração com microserviços externos.
-- **Documentação de APIs**: Swagger integrado para visualização e teste de APIs.
+- **Gerenciamento de Usuários**: CRUD para usuários.
+- **Configuração Centralizada**: Facilita a configuração de parâmetros globais.
+- **Integração com MongoDB**: Banco de dados NoSQL flexível e escalável.
+- **APIs Documentadas**: Utilização do Swagger para documentação.
+- **Logs Estruturados**: Implementação de Serilog para monitoramento.
+- **Autenticação JWT**: Proteção de endpoints com tokens seguros.
+
+---
 
 ## Tecnologias Utilizadas
 
-- **Linguagem**: .NET 8.0
-- **Banco de Dados**: PostgreSQL / SQL Server
-- **Autenticação**: OAuth2, JWT
-- **Log**: Serilog
-- **APIs**: Swagger (OpenAPI)
-- **Containerização**: Docker
+- **.NET 8.0**: Framework principal para desenvolvimento.
+- **MongoDB**: Banco de dados NoSQL.
+- **Swagger/OpenAPI**: Documentação interativa das APIs.
+- **Serilog**: Monitoramento e geração de logs estruturados.
+- **JWT (JSON Web Tokens)**: Implementação de autenticação segura.
+
+---
 
 ## Estrutura do Projeto
 
 ```plaintext
 CoreAPI/
-├── Controllers/
-├── Services/
-├── Repositories/
-├── Models/
-├── Middleware/
-├── Config/
-├── Logs/
-├── Tests/
-└── CoreAPI.csproj
+├── Config/               # Configurações (e.g., MongoDB)
+├── Controllers/          # Controladores da API
+├── Models/               # Modelos e DTOs
+├── Repositories/         # Repositórios de dados
+├── Middleware/           # Middlewares personalizados
+├── Logs/                 # Logs (gerados pelo Serilog)
+├── Tests/                # Testes automatizados
+└── Program.cs            # Arquivo principal de inicialização
 ```
 
-### Diretórios Principais
-
-- **Controllers**: Contém os endpoints da aplicação.
-- **Services**: Implementa a lógica de negócio.
-- **Repositories**: Interações com o banco de dados.
-- **Models**: Definições de classes e DTOs.
-- **Middleware**: Configuração de middlewares como autenticação e tratamento de erros.
-- **Config**: Arquivos de configuração.
-- **Logs**: Armazena os logs gerados pela aplicação.
-- **Tests**: Testes automatizados para garantir a qualidade do código.
+---
 
 ## Configuração e Execução
 
 ### Pré-requisitos
 
-- .NET 8.0 instalado.
-- Banco de dados configurado (PostgreSQL ou SQL Server).
-- Docker (opcional, para containerização).
+- **.NET SDK 8.0** ou superior instalado.
+- **MongoDB** em execução local ou em um servidor remoto.
+- **Git** para versionamento.
 
 ### Configuração
 
-1. Clone este repositório:
+1. Clone o repositório:
    ```bash
    git clone https://github.com/seu-usuario/CoreAPI.git
+   cd CoreAPI
    ```
 
-2. Configure o arquivo `appsettings.json` com as credenciais do banco de dados:
+2. Configure o arquivo `appsettings.json`:
    ```json
    {
-     "ConnectionStrings": {
-       "DefaultConnection": "Server=localhost;Database=CoreDB;User Id=usuario;Password=senha;"
+     "DatabaseSettings": {
+       "ConnectionString": "mongodb://localhost:27017",
+       "DatabaseName": "CoreAPI"
+     },
+     "JwtSettings": {
+       "Issuer": "yourissuer",
+       "Audience": "youraudience",
+       "SecretKey": "your_secret_key"
      }
    }
    ```
 
-3. Execute as migrações do banco de dados:
+3. Restaure as dependências do projeto:
    ```bash
-   dotnet ef database update
+   dotnet restore
    ```
+
+---
 
 ### Execução
 
-1. Execute a aplicação:
+1. Compile o projeto:
+   ```bash
+   dotnet build
+   ```
+
+2. Inicie o servidor:
    ```bash
    dotnet run
    ```
 
-2. Acesse a documentação das APIs no navegador:
+3. Acesse o Swagger para explorar os endpoints:
    ```
    http://localhost:5000/swagger
    ```
+
+---
+
+## Endpoints Principais
+
+### **Usuários**
+
+- `GET /api/users`: Lista todos os usuários.
+- `GET /api/users/{id}`: Retorna um usuário específico.
+- `POST /api/users`: Cria um novo usuário.
+- `PUT /api/users/{id}`: Atualiza um usuário.
+- `DELETE /api/users/{id}`: Remove um usuário.
+
+---
+
+## Logs
+
+Os logs da aplicação são gerados automaticamente pelo **Serilog** e armazenados no diretório `Logs/` com divisão diária. Eles incluem informações sobre erros, requisições e respostas.
+
+---
+
+## Testes
+
+1. Execute os testes automatizados:
+   ```bash
+   dotnet test
+   ```
+
+2. Os testes estão localizados no diretório `Tests/`.
+
+---
 
 ## Contribuições
 
 Contribuições são bem-vindas! Para colaborar:
 
 1. Faça um fork do repositório.
-2. Crie uma branch para sua funcionalidade:
+2. Crie uma branch para suas alterações:
    ```bash
-   git checkout -b minha-nova-funcionalidade
+   git checkout -b minha-nova-feature
    ```
-3. Envie suas alterações:
+3. Faça commit de suas mudanças:
    ```bash
-   git push origin minha-nova-funcionalidade
+   git commit -m "Minha nova feature"
    ```
-4. Abra um pull request.
+4. Envie suas alterações:
+   ```bash
+   git push origin minha-nova-feature
+   ```
+5. Abra um Pull Request.
+
+---
 
 ## Licença
 
-Este projeto está licenciado sob a **MIT License**.
+Este projeto está licenciado sob a **MIT License**. Consulte o arquivo `LICENSE` para mais informações.
 
 ---
 
 **Desenvolvido por [Diego Luan](https://github.com/diegoluanfs).**
 ```
+
+---
