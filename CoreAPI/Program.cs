@@ -16,6 +16,8 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
+Log.Information("A aplicação está sendo inicializada...");
+
 // Adicionar serviços ao contêiner
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("DatabaseSettings"));
@@ -28,11 +30,11 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
 
 builder.Services.AddSingleton<UserRepository>();
 
-// Configuração de autenticação (exemplo com JWT)
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
+// Configuração de autenticação (JWT)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -40,8 +42,8 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             ValidIssuer = "yourissuer",
             ValidAudience = "youraudience",
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes("your_secret_key"))
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes("your_secret_key"))
         };
     });
 
@@ -65,7 +67,18 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Rota Default para a Página Inicial
+app.MapGet("/", () =>
+{
+    Log.Information("Endpoint '/' acessado - Aplicação está rodando.");
+    return Results.Ok(new { message = "Bem-vindo à CoreAPI! A aplicação está rodando." });
+});
+
+// Mapear controladores
 app.MapControllers();
+
+// Log para indicar que a aplicação subiu
+Log.Information("A aplicação subiu com sucesso e está pronta para receber requisições.");
 
 // Iniciar a aplicação
 app.Run();
