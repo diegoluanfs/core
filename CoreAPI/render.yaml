@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: CoreAPI
+    env: docker
+    plan: free
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        value: mongodb://diegoluanfs:4BGz9JWmUTIyCMxn@coreapi.bx2sc.mongodb.net/?retryWrites=true&w=majority&appName=CoreAPI:27017
+      - key: JWT_SECRET
+        value: sua_chave_secreta_aqui
