@@ -1,53 +1,117 @@
-using CoreAPI.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using CoreAPI.Models;
+using CoreAPI.Services;
+using Serilog;
 
 [ApiController]
 [Route("api/[controller]")]
 public class UserController : ControllerBase
 {
-    private readonly UserRepository _repository;
+    private readonly IUserService _userService;
 
-    public UserController(UserRepository repository)
+    public UserController(IUserService userService)
     {
-        _repository = repository;
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _repository.GetAllAsync());
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id)
-    {
-        var user = await _repository.GetByIdAsync(id);
-        if (user == null) return NotFound();
-        return Ok(user);
+        _userService = userService;
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(User user)
+    public async Task<IActionResult> CreateUser([FromBody] User user)
     {
-        await _repository.CreateAsync(user);
-        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+        Log.Information("Recebida requisição para criar um novo usuário. Nome: {Name}, Email: {Email}", user?.Name, user?.Email);
+
+        if (user == null)
+        {
+            Log.Warning("Tentativa de criação falhou: dados do usuário estão nulos.");
+            return BadRequest(new { message = "Dados inválidos." });
+        }
+
+        try
+        {
+            await _userService.CreateUserAsync(user);
+            return Ok(new { message = "Usuário criado com sucesso." });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao criar usuário. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+            return StatusCode(500, new { message = "Erro interno no servidor." });
+        }
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetUserById(string id)
+    {
+        Log.Information("Recebida requisição para obter o usuário. ID: {Id}", id);
+
+        try
+        {
+            var user = await _userService.GetUserByIdAsync(id);
+
+            if (user == null)
+            {
+                Log.Warning("Usuário não encontrado. ID: {Id}", id);
+                return NotFound(new { message = "Usuário não encontrado." });
+            }
+
+            return Ok(user);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao obter usuário. ID: {Id}", id);
+            return StatusCode(500, new { message = "Erro interno no servidor." });
+        }
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, User user)
+    public async Task<IActionResult> UpdateUser(string id, [FromBody] User user)
     {
-        var existingUser = await _repository.GetByIdAsync(id);
-        if (existingUser == null) return NotFound();
+        Log.Information("Recebida requisição para atualizar o usuário. ID: {Id}", id);
 
-        user.Id = id;
-        await _repository.UpdateAsync(id, user);
-        return NoContent();
+        if (user == null)
+        {
+            Log.Warning("Tentativa de atualização falhou: dados do usuário estão nulos.");
+            return BadRequest(new { message = "Dados inválidos." });
+        }
+
+        try
+        {
+            var updatedUser = await _userService.UpdateUserAsync(id, user);
+
+            if (updatedUser == null)
+            {
+                Log.Warning("Usuário não encontrado para atualização. ID: {Id}", id);
+                return NotFound(new { message = "Usuário não encontrado." });
+            }
+
+            return Ok(new { message = "Usuário atualizado com sucesso.", updatedUser });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao atualizar usuário. ID: {Id}", id);
+            return StatusCode(500, new { message = "Erro interno no servidor." });
+        }
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> DeleteUser(string id)
     {
-        var user = await _repository.GetByIdAsync(id);
-        if (user == null) return NotFound();
+        Log.Information("Recebida requisição para excluir o usuário. ID: {Id}", id);
 
-        await _repository.DeleteAsync(id);
-        return NoContent();
+        try
+        {
+            var result = await _userService.DeleteUserAsync(id);
+
+            if (!result)
+            {
+                Log.Warning("Usuário não encontrado para exclusão. ID: {Id}", id);
+                return NotFound(new { message = "Usuário não encontrado." });
+            }
+
+            return Ok(new { message = "Usuário excluído com sucesso." });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao excluir usuário. ID: {Id}", id);
+            return StatusCode(500, new { message = "Erro interno no servidor." });
+        }
     }
 }

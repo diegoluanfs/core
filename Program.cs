@@ -1,24 +1,26 @@
 using CoreAPI.Config;
 using CoreAPI.Repositories;
+using CoreAPI.Services;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Serilog;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar Serilog para logs
+// Configuração do Serilog para logs estruturados
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+    .MinimumLevel.Debug() // Nível mínimo de logs
+    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day,
+                  outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .Enrich.WithProperty("Application", "CoreAPI")
     .CreateLogger();
+
 builder.Host.UseSerilog();
 
-Log.Information("A aplicação está sendo inicializada...");
+Log.Information("Iniciando a aplicação...");
 
-// Adicionar serviços ao contêiner
+// Configuração de Serviços e Dependências
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("DatabaseSettings"));
 
@@ -28,35 +30,18 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
     return new MongoClient(settings.ConnectionString);
 });
 
-builder.Services.AddSingleton<UserRepository>();
+// Injeção de Dependência para Repositório e Serviço
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 
-// Configuração de autenticação (JWT)
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "yourissuer",
-            ValidAudience = "youraudience",
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("your_secret_key"))
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// Adicionar controladores e Swagger
+// Configuração de Controladores e Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configurar o pipeline de requisição
+// Configuração do Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -64,21 +49,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();
 app.UseAuthorization();
-
-// Rota Default para a Página Inicial
-app.MapGet("/", () =>
-{
-    Log.Information("Endpoint '/' acessado - Aplicação está rodando.");
-    return Results.Ok(new { message = "Bem-vindo à CoreAPI! A aplicação está rodando." });
-});
-
-// Mapear controladores
 app.MapControllers();
 
-// Log para indicar que a aplicação subiu
-Log.Information("A aplicação subiu com sucesso e está pronta para receber requisições.");
+Log.Information("A aplicação foi iniciada e está pronta para receber requisições.");
 
-// Iniciar a aplicação
 app.Run();
