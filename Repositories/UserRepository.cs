@@ -20,12 +20,14 @@ namespace CoreAPI.Repositories
         {
             try
             {
-                Log.Debug("Inserindo usuário no banco de dados. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                Log.Debug("Inserindo usuário no banco de dados. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
                 await _users.InsertOneAsync(user);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Erro ao inserir usuário no banco de dados. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                Log.Error(ex, "Erro ao inserir usuário no banco de dados. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
                 throw;
             }
         }
@@ -53,7 +55,8 @@ namespace CoreAPI.Repositories
 
                 if (result.IsAcknowledged && result.ModifiedCount > 0)
                 {
-                    Log.Debug("Usuário atualizado com sucesso no banco de dados. ID: {Id}", id);
+                    Log.Debug("Usuário atualizado com sucesso no banco de dados. ID: {Id}, Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                        id, user.Name, user.Email, user.PhoneNumber);
                     return user;
                 }
 
@@ -62,7 +65,8 @@ namespace CoreAPI.Repositories
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Erro ao atualizar usuário no banco de dados. ID: {Id}", id);
+                Log.Error(ex, "Erro ao atualizar usuário no banco de dados. ID: {Id}, Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    id, user.Name, user.Email, user.PhoneNumber);
                 throw;
             }
         }

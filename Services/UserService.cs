@@ -19,11 +19,25 @@ namespace CoreAPI.Services
             {
                 Log.Information("Validando dados para criação do usuário. Nome: {Name}, Email: {Email}", user.Name, user.Email);
 
-                // Validação básica
+                // Validação de email
                 if (string.IsNullOrWhiteSpace(user.Email))
                 {
                     Log.Warning("Dados inválidos: email está vazio. Nome: {Name}", user.Name);
                     throw new ArgumentException("O email do usuário não pode estar vazio.");
+                }
+
+                // Validação de senha
+                if (string.IsNullOrWhiteSpace(user.Password) || user.Password.Length < 6)
+                {
+                    Log.Warning("Dados inválidos: senha muito curta. Nome: {Name}", user.Name);
+                    throw new ArgumentException("A senha deve ter pelo menos 6 caracteres.");
+                }
+
+                // Validação de número de telefone
+                if (string.IsNullOrWhiteSpace(user.PhoneNumber) || !System.Text.RegularExpressions.Regex.IsMatch(user.PhoneNumber, @"^\+?[1-9]\d{1,14}$"))
+                {
+                    Log.Warning("Dados inválidos: número de telefone incorreto. Nome: {Name}", user.Name);
+                    throw new ArgumentException("O número de telefone é inválido.");
                 }
 
                 await _userRepository.CreateAsync(user);
@@ -56,11 +70,25 @@ namespace CoreAPI.Services
             {
                 Log.Information("Validando dados para atualização do usuário. ID: {Id}", id);
 
-                // Validação básica
+                // Validação de email
                 if (string.IsNullOrWhiteSpace(user.Email))
                 {
                     Log.Warning("Dados inválidos: email está vazio para atualização. ID: {Id}", id);
                     throw new ArgumentException("O email do usuário não pode estar vazio.");
+                }
+
+                // Validação de senha
+                if (string.IsNullOrWhiteSpace(user.Password) || user.Password.Length < 6)
+                {
+                    Log.Warning("Dados inválidos: senha muito curta para atualização. ID: {Id}", id);
+                    throw new ArgumentException("A senha deve ter pelo menos 6 caracteres.");
+                }
+
+                // Validação de número de telefone
+                if (string.IsNullOrWhiteSpace(user.PhoneNumber) || !System.Text.RegularExpressions.Regex.IsMatch(user.PhoneNumber, @"^\+?[1-9]\d{1,14}$"))
+                {
+                    Log.Warning("Dados inválidos: número de telefone incorreto para atualização. ID: {Id}", id);
+                    throw new ArgumentException("O número de telefone é inválido.");
                 }
 
                 var updatedUser = await _userRepository.UpdateAsync(id, user);

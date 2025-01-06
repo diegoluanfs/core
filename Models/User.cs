@@ -1,14 +1,24 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-public class User
+namespace CoreAPI.Models
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string? Id { get; set; }
+    public class User
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = null!;
 
-    [BsonElement("Name")]
-    public string? Name { get; set; }
+        [BsonElement("name")]
+        public string Name { get; set; } = null!;
 
-    public string? Email { get; set; }
+        [BsonElement("email")]
+        public string Email { get; set; } = null!;
+
+        [BsonElement("password")]
+        public string Password { get; set; } = null!;
+
+        [BsonElement("phone_number")]
+        public string PhoneNumber { get; set; } = null!;
+    }
 }
