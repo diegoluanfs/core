@@ -6,6 +6,8 @@ services:
     dockerfilePath: Dockerfile
     envVars:
       - key: DATABASE_URL
-        value: mongodb://diegoluanfs:4BGz9JWmUTIyCMxn@coreapi.bx2sc.mongodb.net/?retryWrites=true&w=majority&appName=CoreAPI:27017
+        value: mongodb://<seu-usuario>:<sua-senha>@<seu-servidor>:27017
       - key: JWT_SECRET
         value: sua_chave_secreta_aqui
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
