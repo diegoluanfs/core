@@ -13,11 +13,26 @@ namespace CoreAPI.Services
             _userRepository = userRepository;
         }
 
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
+        {
+            try
+            {
+                Log.Information("Buscando todos os usuários na camada de serviço.");
+                return await _userRepository.GetAllAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Erro ao buscar todos os usuários na camada de serviço.");
+                throw;
+            }
+        }
+
         public async Task CreateUserAsync(User user)
         {
             try
             {
-                Log.Information("Validando dados para criação do usuário. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                Log.Information("Validando dados para criação do usuário. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
 
                 // Validação de email
                 if (string.IsNullOrWhiteSpace(user.Email))
@@ -40,12 +55,23 @@ namespace CoreAPI.Services
                     throw new ArgumentException("O número de telefone é inválido.");
                 }
 
+                // Verificar duplicatas
+                var existingUser = await _userRepository.GetByEmailOrPhoneAsync(user.Email, user.PhoneNumber);
+                if (existingUser != null)
+                {
+                    Log.Warning("Tentativa de cadastro falhou: usuário com o mesmo email ou número de telefone já existe. Email: {Email}, Phone: {PhoneNumber}",
+                        user.Email, user.PhoneNumber);
+                    throw new ArgumentException("Já existe um usuário com este email ou número de telefone.");
+                }
+
                 await _userRepository.CreateAsync(user);
-                Log.Information("Usuário criado com sucesso na camada de serviço. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                Log.Information("Usuário criado com sucesso na camada de serviço. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Erro ao criar usuário na camada de serviço. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                Log.Error(ex, "Erro ao criar usuário na camada de serviço. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
                 throw;
             }
         }

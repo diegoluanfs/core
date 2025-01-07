@@ -14,6 +14,33 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAllUsers()
+    {
+        Log.Information("Recebida requisição para listar todos os usuários.");
+
+        try
+        {
+            var users = await _userService.GetAllUsersAsync();
+
+            // Converte ObjectId para string antes de retornar
+            var response = users.Select(u => new
+            {
+                Id = u.Id.ToString(),
+                u.Name,
+                u.Email,
+                u.PhoneNumber
+            });
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Erro ao listar todos os usuários.");
+            return StatusCode(500, new { message = "Erro interno no servidor." });
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] User user)
     {

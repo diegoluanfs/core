@@ -4,6 +4,7 @@ namespace CoreAPI.Services
 {
     public interface IUserService
     {
+        Task<IEnumerable<User>> GetAllUsersAsync();
         Task CreateUserAsync(User user);
         Task<User?> GetUserByIdAsync(string id);
         Task<User?> UpdateUserAsync(string id, User user);

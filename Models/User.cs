@@ -7,7 +7,7 @@ namespace CoreAPI.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = null!;
+        public ObjectId Id { get; set; }
 
         [BsonElement("name")]
         public string Name { get; set; } = null!;

@@ -1,6 +1,7 @@
 using CoreAPI.Config;
 using CoreAPI.Models;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
 
@@ -14,6 +15,20 @@ namespace CoreAPI.Repositories
         {
             var database = mongoClient.GetDatabase(settings.Value.DatabaseName);
             _users = database.GetCollection<User>("Users");
+        }
+
+        public async Task<IEnumerable<User>> GetAllAsync()
+        {
+            try
+            {
+                Log.Debug("Buscando todos os usuários no banco de dados.");
+                return await _users.Find(_ => true).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Erro ao buscar todos os usuários no banco de dados.");
+                throw;
+            }
         }
 
         public async Task CreateAsync(User user)
@@ -32,12 +47,32 @@ namespace CoreAPI.Repositories
             }
         }
 
+        public async Task<User?> GetByEmailOrPhoneAsync(string email, string phoneNumber)
+        {
+            try
+            {
+                Log.Debug("Verificando duplicatas no banco de dados. Email: {Email}, Phone: {PhoneNumber}", email, phoneNumber);
+                return await _users.Find(user => user.Email == email || user.PhoneNumber == phoneNumber).FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Erro ao verificar duplicatas no banco de dados. Email: {Email}, Phone: {PhoneNumber}", email, phoneNumber);
+                throw;
+            }
+        }
+
         public async Task<User?> GetByIdAsync(string id)
         {
             try
             {
+                var objectId = ObjectId.Parse(id); // Converte a string para ObjectId
                 Log.Debug("Buscando usuário no banco de dados. ID: {Id}", id);
-                return await _users.Find(user => user.Id == id).FirstOrDefaultAsync();
+                return await _users.Find(user => user.Id == objectId).FirstOrDefaultAsync();
+            }
+            catch (FormatException ex)
+            {
+                Log.Warning("Formato inválido para o ID: {Id}", id);
+                return null; // Retorna null caso o ID seja inválido
             }
             catch (Exception ex)
             {
@@ -50,8 +85,9 @@ namespace CoreAPI.Repositories
         {
             try
             {
+                var objectId = ObjectId.Parse(id); // Converte a string para ObjectId
                 Log.Debug("Atualizando usuário no banco de dados. ID: {Id}", id);
-                var result = await _users.ReplaceOneAsync(u => u.Id == id, user);
+                var result = await _users.ReplaceOneAsync(u => u.Id == objectId, user);
 
                 if (result.IsAcknowledged && result.ModifiedCount > 0)
                 {
@@ -62,6 +98,11 @@ namespace CoreAPI.Repositories
 
                 Log.Warning("Nenhum usuário encontrado para atualização no banco de dados. ID: {Id}", id);
                 return null;
+            }
+            catch (FormatException ex)
+            {
+                Log.Warning("Formato inválido para o ID: {Id}", id);
+                return null; // Retorna null caso o ID seja inválido
             }
             catch (Exception ex)
             {
@@ -75,8 +116,9 @@ namespace CoreAPI.Repositories
         {
             try
             {
+                var objectId = ObjectId.Parse(id); // Converte a string para ObjectId
                 Log.Debug("Excluindo usuário no banco de dados. ID: {Id}", id);
-                var result = await _users.DeleteOneAsync(user => user.Id == id);
+                var result = await _users.DeleteOneAsync(user => user.Id == objectId);
 
                 if (result.DeletedCount > 0)
                 {
@@ -86,6 +128,11 @@ namespace CoreAPI.Repositories
 
                 Log.Warning("Nenhum usuário encontrado para exclusão no banco de dados. ID: {Id}", id);
                 return false;
+            }
+            catch (FormatException ex)
+            {
+                Log.Warning("Formato inválido para o ID: {Id}", id);
+                return false; // Retorna false caso o ID seja inválido
             }
             catch (Exception ex)
             {
