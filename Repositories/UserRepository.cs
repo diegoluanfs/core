@@ -47,6 +47,20 @@ namespace CoreAPI.Repositories
             }
         }
 
+        public async Task<User?> GetByEmailAsync(string email)
+        {
+            try
+            {
+                Log.Debug("Buscando usuário por email no banco de dados. Email: {Email}", email);
+                return await _users.Find(user => user.Email == email).FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Erro ao buscar usuário por email no banco de dados. Email: {Email}", email);
+                throw;
+            }
+        }
+
         public async Task<User?> GetByEmailOrPhoneAsync(string email, string phoneNumber)
         {
             try
