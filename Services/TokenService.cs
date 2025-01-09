@@ -21,12 +21,12 @@ namespace CoreAPI.Services
         {
             var claims = new[]
             {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), // Converte ObjectId para string
-        new Claim(JwtRegisteredClaimNames.Email, user.Email),
-        new Claim("name", user.Name),
-        new Claim("phone_number", user.PhoneNumber),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // ID único do token
-    };
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), // Converte ObjectId para string
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim("name", user.Name),
+                new Claim("phone_number", user.PhoneNumber),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // ID único do token
+            };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

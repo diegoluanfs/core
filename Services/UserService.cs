@@ -1,6 +1,7 @@
 ﻿using CoreAPI.Models;
 using CoreAPI.Repositories;
 using Serilog;
+using System.Text.RegularExpressions;
 
 namespace CoreAPI.Services
 {
@@ -15,59 +16,6 @@ namespace CoreAPI.Services
             _tokenService = tokenService;
         }
 
-        public async Task CreateUserAsync(User user)
-        {
-            try
-            {
-                Log.Information("Validando dados para criação do usuário. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
-                    user.Name, user.Email, user.PhoneNumber);
-
-                // Validação de duplicidade
-                var existingUser = await _userRepository.GetByEmailOrPhoneAsync(user.Email, user.PhoneNumber);
-                if (existingUser != null)
-                {
-                    Log.Warning("Tentativa de cadastro falhou: usuário com o mesmo email ou número de telefone já existe. Email: {Email}, Phone: {PhoneNumber}",
-                        user.Email, user.PhoneNumber);
-                    throw new ArgumentException("Já existe um usuário com este email ou número de telefone.");
-                }
-
-                // Criação do usuário
-                await _userRepository.CreateAsync(user);
-                Log.Information("Usuário criado com sucesso na camada de serviço. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
-                    user.Name, user.Email, user.PhoneNumber);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Erro ao criar usuário na camada de serviço. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
-                    user.Name, user.Email, user.PhoneNumber);
-                throw;
-            }
-        }
-
-        public async Task<User?> Authenticate(string email, string password)
-        {
-            try
-            {
-                Log.Information("Iniciando autenticação para o email: {Email}", email);
-
-                var user = await _userRepository.GetByEmailAsync(email);
-
-                if (user == null || user.Password != password)
-                {
-                    Log.Warning("Falha na autenticação. Email ou senha incorretos. Email: {Email}", email);
-                    return null;
-                }
-
-                Log.Information("Usuário autenticado com sucesso. Email: {Email}", email);
-                return user;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Erro durante o processo de autenticação. Email: {Email}", email);
-                throw;
-            }
-        }
-
         public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
             try
@@ -80,6 +28,65 @@ namespace CoreAPI.Services
                 Log.Error(ex, "Erro ao buscar todos os usuários na camada de serviço.");
                 throw;
             }
+        }
+
+        public async Task CreateUserAsync(User user)
+        {
+            // Validações específicas de cada campo
+            if (string.IsNullOrWhiteSpace(user.Name))
+            {
+                throw new ArgumentException("O campo 'Name' não pode estar vazio.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.Email) || !IsValidEmail(user.Email))
+            {
+                throw new ArgumentException("O campo 'Email' é inválido ou está vazio.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.Password) || user.Password.Length < 6)
+            {
+                throw new ArgumentException("O campo 'Password' deve ter pelo menos 6 caracteres.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.PhoneNumber) || !IsValidPhoneNumber(user.PhoneNumber))
+            {
+                throw new ArgumentException("O campo 'PhoneNumber' é inválido ou está vazio.");
+            }
+
+            // Verificar duplicidade de email ou telefone
+            var existingUser = await _userRepository.GetByEmailOrPhoneAsync(user.Email, user.PhoneNumber);
+            if (existingUser != null)
+            {
+                throw new ArgumentException("Já existe um usuário com este email ou número de telefone.");
+            }
+
+            try
+            {
+                Log.Information("Registrando novo usuário. Nome: {Name}, Email: {Email}, Phone: {PhoneNumber}",
+                    user.Name, user.Email, user.PhoneNumber);
+                await _userRepository.CreateAsync(user);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Erro ao registrar novo usuário. Nome: {Name}, Email: {Email}", user.Name, user.Email);
+                throw new Exception("Erro interno ao registrar o usuário.");
+            }
+        }
+
+        public async Task<User?> Authenticate(string email, string password)
+        {
+            Log.Information("Iniciando autenticação para o email: {Email}", email);
+
+            var user = await _userRepository.GetByEmailAsync(email);
+
+            if (user == null || user.Password != password)
+            {
+                Log.Warning("Falha na autenticação: credenciais inválidas. Email: {Email}", email);
+                return null;
+            }
+
+            Log.Information("Usuário autenticado com sucesso. Email: {Email}", email);
+            return user;
         }
 
         public async Task<User?> GetUserByIdAsync(string id)
@@ -138,6 +145,24 @@ namespace CoreAPI.Services
                 Log.Error(ex, "Erro ao excluir usuário na camada de serviço. ID: {Id}", id);
                 throw;
             }
+        }
+
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool IsValidPhoneNumber(string phoneNumber)
+        {
+            return Regex.IsMatch(phoneNumber, @"^\+?[1-9]\d{1,14}$");
         }
     }
 }

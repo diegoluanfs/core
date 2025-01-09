@@ -1,35 +1,40 @@
 using CoreAPI.Config;
+using CoreAPI.Middleware;
 using CoreAPI.Repositories;
 using CoreAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuração do Serilog para logs estruturados
+// Configurar Serilog para logs
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug() // Nível mínimo de logs
-    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-    .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day,
-                  outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-    .Enrich.WithProperty("Application", "CoreAPI")
+    .WriteTo.Console()
+    .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
-
 builder.Host.UseSerilog();
 
-Log.Information("Iniciando a aplicação...");
-
-// Adicione a configuração do JWT
+// Configurar serviços
+builder.Services.Configure<DatabaseSettings>(
+    builder.Configuration.GetSection("DatabaseSettings"));
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+    return new MongoClient(settings.ConnectionString);
+});
 
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IUserService, UserService>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
+
+// Configurar autenticação JWT
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -37,6 +42,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -47,82 +53,112 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
     };
+
+    // Eventos para logs e depuração
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Log.Error(context.Exception, "Falha na autenticação do token JWT.");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Log.Information("Token JWT validado com sucesso. Claims: {Claims}",
+                context.Principal?.Claims.Select(c => new { c.Type, c.Value }));
+            return Task.CompletedTask;
+        },
+        OnMessageReceived = context =>
+        {
+            Log.Information("Token recebido no cabeçalho Authorization: {Token}", context.Token);
+            return Task.CompletedTask;
+        }
+    };
 });
 
-// Configure Swagger
+// Adicionar autorização
+builder.Services.AddAuthorization();
+
+// Adicionar controladores e Swagger
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CoreAPI", Version = "v1" });
-
-    // Configurar o esquema de segurança para JWT
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Insira o token JWT no formato: Bearer {seu_token}"
+        Title = "CoreAPI",
+        Version = "v1",
+        Description = "API para gerenciamento de usuários com autenticação JWT"
     });
 
-    // Exigir o esquema de segurança nos endpoints protegidos
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    // Configurar segurança JWT no Swagger
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Insira o token JWT no formato: Bearer {seu token}"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
                 {
-                    Type = ReferenceType.SecurityScheme,
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
-            Array.Empty<string>()
+            new string[] {}
         }
     });
 });
 
-// Configuração de Serviços e Dependências
-builder.Services.Configure<DatabaseSettings>(
-    builder.Configuration.GetSection("DatabaseSettings"));
-
-builder.Services.AddSingleton<IMongoClient>(sp =>
-{
-    var settings = sp.GetRequiredService<IOptions<DatabaseSettings>>().Value;
-    return new MongoClient(settings.ConnectionString);
-});
-
-// Injeção de Dependência para Repositório e Serviço
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ITokenService, TokenService>();
-
-// Configuração de Controladores e Swagger
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 var app = builder.Build();
 
-// Configuração do Middleware
+// Middleware global para capturar logs de requisição
+app.Use(async (context, next) =>
+{
+    Log.Information("Recebida requisição: {Method} {Path}, Headers: {Headers}",
+        context.Request.Method,
+        context.Request.Path,
+        context.Request.Headers);
+
+    await next.Invoke();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "CoreAPI v1");
-        c.RoutePrefix = string.Empty; // Torna a interface do Swagger acessível na raiz
+        c.RoutePrefix = string.Empty; // Serve o Swagger na raiz
     });
 }
 
+// Middleware para tratamento de erros
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
-app.UseHttpsRedirection();
-
+// Configurar middlewares de autenticação e autorização
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Mapear controladores
 app.MapControllers();
 
-Log.Information("A aplicação foi iniciada e está pronta para receber requisições.");
+// Mensagem ao iniciar
+Log.Information("Aplicação iniciada com sucesso.");
 
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/index.html");
+    return Task.CompletedTask;
+});
+
+// Iniciar a aplicação
 app.Run();

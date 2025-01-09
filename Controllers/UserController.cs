@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using CoreAPI.Models;
 using CoreAPI.Services;
 using Serilog;
+using System.Security.Claims;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -17,33 +18,90 @@ public class UserController : ControllerBase
         _tokenService = tokenService;
     }
 
+    [Authorize]
+    [HttpGet("check-logged-in")]
+    public IActionResult CheckLoggedIn()
+    {
+        Log.Information("Verificando se o usuário está autenticado.");
+
+        // Obter as claims do usuário autenticado
+        var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+        Log.Information("Claims disponíveis: {@Claims}", claims);
+
+        // Verificar se as claims necessárias estão presentes
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email = User.FindFirst(ClaimTypes.Email)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            Log.Warning("A claim 'sub' (userId) está ausente.");
+            return Unauthorized(new ApiResponse<object>(
+                StatusCodes.Status401Unauthorized,
+                "Usuário não autenticado: 'userId' não encontrado."
+            ));
+        }
+
+        if (string.IsNullOrEmpty(email))
+        {
+            Log.Warning("A claim 'email' está ausente.");
+            return Unauthorized(new ApiResponse<object>(
+                StatusCodes.Status401Unauthorized,
+                "Usuário não autenticado: 'email' não encontrado."
+            ));
+        }
+
+        // Retornar mensagem de sucesso
+        Log.Information("Usuário autenticado com sucesso. UserId: {UserId}, Email: {Email}", userId, email);
+        return Ok(new ApiResponse<object>(
+            StatusCodes.Status200OK,
+            "Usuário autenticado com sucesso.",
+            new { UserId = userId, Email = email }
+        ));
+    }
+
     [HttpPost("register")]
     public async Task<IActionResult> CreateUser([FromBody] User user)
     {
-        Log.Information("Recebida requisição para registrar um novo usuário. Nome: {Name}, Email: {Email}", user?.Name, user?.Email);
+        Log.Information("Recebida requisição para registrar um novo usuário.");
 
         if (user == null)
         {
-            Log.Warning("Tentativa de registro falhou: dados do usuário estão nulos.");
-            return BadRequest(new { message = "Dados inválidos." });
+            return BadRequest(new ApiResponse<object>(
+                StatusCodes.Status400BadRequest,
+                "Os dados do usuário não podem estar vazios."
+            ));
         }
 
         try
         {
             await _userService.CreateUserAsync(user);
-            return Ok(new { message = "Usuário registrado com sucesso." });
+            return Ok(new ApiResponse<object>(
+                StatusCodes.Status200OK,
+                "Usuário registrado com sucesso."
+            ));
+        }
+        catch (ArgumentException ex)
+        {
+            Log.Warning(ex, "Erro de validação ao registrar o usuário.");
+            return BadRequest(new ApiResponse<object>(
+                StatusCodes.Status400BadRequest,
+                ex.Message
+            ));
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao registrar usuário. Nome: {Name}, Email: {Email}", user.Name, user.Email);
-            return StatusCode(500, new { message = "Erro interno no servidor." });
+            Log.Error(ex, "Erro ao registrar usuário.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(
+                StatusCodes.Status500InternalServerError,
+                "Erro interno no servidor."
+            ));
         }
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserLoginRequest loginRequest)
     {
-        Log.Information("Recebida requisição para autenticar um usuário. Email: {Email}", loginRequest.Email);
+        Log.Information("Recebida requisição para autenticar um usuário.");
 
         try
         {
@@ -51,18 +109,26 @@ public class UserController : ControllerBase
 
             if (user == null)
             {
-                Log.Warning("Falha na autenticação: credenciais inválidas. Email: {Email}", loginRequest.Email);
-                return Unauthorized(new { message = "Credenciais inválidas." });
+                return Unauthorized(new ApiResponse<object>(
+                    StatusCodes.Status401Unauthorized,
+                    "Credenciais inválidas."
+                ));
             }
 
             var token = _tokenService.GenerateToken(user);
-            Log.Information("Usuário autenticado com sucesso. Email: {Email}", loginRequest.Email);
-            return Ok(new { token });
+            return Ok(new ApiResponse<object>(
+                StatusCodes.Status200OK,
+                "Usuário autenticado com sucesso.",
+                new { token }
+            ));
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Erro ao autenticar usuário. Email: {Email}", loginRequest.Email);
-            return StatusCode(500, new { message = "Erro interno no servidor." });
+            Log.Error(ex, "Erro ao autenticar usuário.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(
+                StatusCodes.Status500InternalServerError,
+                "Erro interno no servidor."
+            ));
         }
     }
 
@@ -78,16 +144,25 @@ public class UserController : ControllerBase
 
             if (user == null)
             {
-                Log.Warning("Usuário não encontrado. ID: {Id}", id);
-                return NotFound(new { message = "Usuário não encontrado." });
+                return NotFound(new ApiResponse<object>(
+                    StatusCodes.Status404NotFound,
+                    "Usuário não encontrado."
+                ));
             }
 
-            return Ok(user);
+            return Ok(new ApiResponse<User>(
+                StatusCodes.Status200OK,
+                "Usuário encontrado com sucesso.",
+                user
+            ));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Erro ao obter usuário. ID: {Id}", id);
-            return StatusCode(500, new { message = "Erro interno no servidor." });
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(
+                StatusCodes.Status500InternalServerError,
+                "Erro interno no servidor."
+            ));
         }
     }
 
@@ -99,8 +174,10 @@ public class UserController : ControllerBase
 
         if (user == null)
         {
-            Log.Warning("Tentativa de atualização falhou: dados do usuário estão nulos.");
-            return BadRequest(new { message = "Dados inválidos." });
+            return BadRequest(new ApiResponse<object>(
+                StatusCodes.Status400BadRequest,
+                "Dados inválidos para atualização do usuário."
+            ));
         }
 
         try
@@ -109,16 +186,25 @@ public class UserController : ControllerBase
 
             if (updatedUser == null)
             {
-                Log.Warning("Usuário não encontrado para atualização. ID: {Id}", id);
-                return NotFound(new { message = "Usuário não encontrado." });
+                return NotFound(new ApiResponse<object>(
+                    StatusCodes.Status404NotFound,
+                    "Usuário não encontrado para atualização."
+                ));
             }
 
-            return Ok(new { message = "Usuário atualizado com sucesso.", updatedUser });
+            return Ok(new ApiResponse<User>(
+                StatusCodes.Status200OK,
+                "Usuário atualizado com sucesso.",
+                updatedUser
+            ));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Erro ao atualizar usuário. ID: {Id}", id);
-            return StatusCode(500, new { message = "Erro interno no servidor." });
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(
+                StatusCodes.Status500InternalServerError,
+                "Erro interno no servidor."
+            ));
         }
     }
 
@@ -134,24 +220,24 @@ public class UserController : ControllerBase
 
             if (!result)
             {
-                Log.Warning("Usuário não encontrado para exclusão. ID: {Id}", id);
-                return NotFound(new { message = "Usuário não encontrado." });
+                return NotFound(new ApiResponse<object>(
+                    StatusCodes.Status404NotFound,
+                    "Usuário não encontrado para exclusão."
+                ));
             }
 
-            return Ok(new { message = "Usuário excluído com sucesso." });
+            return Ok(new ApiResponse<object>(
+                StatusCodes.Status200OK,
+                "Usuário excluído com sucesso."
+            ));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Erro ao excluir usuário. ID: {Id}", id);
-            return StatusCode(500, new { message = "Erro interno no servidor." });
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(
+                StatusCodes.Status500InternalServerError,
+                "Erro interno no servidor."
+            ));
         }
-    }
-
-    [Authorize]
-    [HttpGet("protected")]
-    public IActionResult ProtectedEndpoint()
-    {
-        Log.Information("Endpoint protegido acessado.");
-        return Ok(new { message = "Você acessou um endpoint protegido!" });
     }
 }
